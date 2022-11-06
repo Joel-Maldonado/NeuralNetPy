@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from nnfs.datasets import spiral_data, vertical_data
-from main import *
+from network import *
 import numpy as np
 
 
