@@ -141,7 +141,14 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         # Normalize gradient
         self.dinputs = self.dinputs / samples
 
-
+class Activation_Linear:
+    def forward(self, inputs):
+        self.inputs = inputs
+        self.output = inputs
+        
+    def backward(self, dvalues):
+        # Derivative of y=x, is 1
+        self.dinputs = dvalues.copy()
 
 
 
@@ -460,7 +467,7 @@ for epoch in range(10001):
     accuracy = np.mean(predictions==y)
     
     if not epoch % 100:
-        print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f}, Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}, LR: {optimizer.current_learning_rate:.5f}')
+        print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f}, (Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}), LR: {optimizer.current_learning_rate:.5f}')
     
     # Backward pass
     loss_function.backward(activation2.output, y)
