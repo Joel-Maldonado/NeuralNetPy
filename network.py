@@ -18,15 +18,14 @@ class Layer_Dense:
         self.bias_regularizer_l2 = bias_regularizer_l2
 
     def forward(self, inputs):
-        # Remember input values
         self.inputs = inputs
-        # Calculate output values from inputs, weights and biases
         self.output = np.dot(inputs, self.weights) + self.biases
 
     def backward(self, dvalues):
         # Gradients on parameters
         self.dweights = np.dot(self.inputs.T, dvalues)
         self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
+        
         # Gradients on regularization
         # L1 on weights
         if self.weight_regularizer_l1 > 0:
@@ -70,13 +69,14 @@ class Layer_Dropout:
         self.dinputs = dvalues * self.binary_mask
 
 
+
+
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
         self.output = np.maximum(0, inputs)
 
     def backward(self, dvalues):
-        # Prevent modifying original variable
         self.dinputs = dvalues.copy()
 
         # Zero gradient where input values are nega1.82tive
@@ -92,13 +92,14 @@ class Activation_Softmax:
     def backward(self, dvalues):
         # Create uninitialized array
         self.dinputs = np.empty_like(dvalues)
-        # Enumerate outputs and gradients
+
         for index, (single_output, single_dvalues) in enumerate(zip(self.output, dvalues)):
             # Flatten output array
             single_output = single_output.reshape(-1, 1)
+
             # Calculate Jacobian matrix of the output and
-            jacobian_matrix = np.diagflat(
-                single_output) - np.dot(single_output, single_output.T)
+            jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
+            
             # Calculate sample-wise gradient and add it to the array of sample gradients
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
@@ -111,7 +112,7 @@ class Activation_Sigmoid:
 
     def backward(self, dvalues):
         # Derivative - calculates from output of the sigmoid function
-        self.dinputs = dvalues * (1 - self.output) * self.out
+        self.dinputs = dvalues * (1 - self.output) * self.output
 
 
 class Activation_Softmax_Loss_CategoricalCrossentropy():
@@ -127,6 +128,7 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
 
     def backward(self, dvalues, y_true):
         samples = len(dvalues)
+        
         # If labels are one-hot encoded, turn them into discrete values
         if len(y_true.shape) == 2:
             y_true = np.argmax(y_true, axis=1)
@@ -139,9 +141,12 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         # Normalize gradient
         self.dinputs = self.dinputs / samples
 
+
+
+
+
 class Loss:
     def regularization_loss(self, layer):
-        # 0 by default
         regularization_loss = 0
 
         # L1 regularization - weights calculate only when factor greater than 0
@@ -172,10 +177,36 @@ class Loss:
     def calculate(self, output, y):
         # Calculate sample losses
         sample_losses = self.forward(output, y)
+
         # Calculate mean loss
         data_loss = np.mean(sample_losses)
-        # Return loss
+
         return data_loss
+
+
+class Loss_BinaryCrossentropy(Loss):
+    def forward(self, y_pred, y_true):
+        # Clip data to prevent division by 0
+        y_pred_clipped = np.clip(y_pred, 1e-7, 1 - 1e-7)
+        
+        # Calculate sample-wise loss
+        sample_losses = -(y_true * np.log(y_pred_clipped) + (1 - y_true) * np.log(1 - y_pred_clipped))
+        sample_losses = np.mean(sample_losses, axis=-1)
+
+        return sample_losses
+
+    def backward(self, dvalues, y_true):
+        samples = len(dvalues)
+        outputs = len(dvalues[0])
+        
+        # Clip data to prevent division by 0
+        clipped_dvalues = np.clip(dvalues, 1e-7, 1 - 1e-7)
+        
+        # Calculate gradient
+        self.dinputs = -(y_true / clipped_dvalues - (1 - y_true) / (1 - clipped_dvalues)) / outputs
+        
+        # Normalize gradient, so not influenced on number of samples
+        self.dinputs = self.dinputs / samples
 
 
 class Loss_CategoricalCrossentropy(Loss):
@@ -233,7 +264,6 @@ class Optimizer_SGD:
             # If layer does not contain momentum arrays, create them filled with zeros
             if not hasattr(layer, 'weight_momentums'):
                 layer.weight_momentums = np.zeros_like(layer.weights)
-                # If there is no momentum array for weights, the array doesn't exist for biases yet either.
                 layer.bias_momentums = np.zeros_like(layer.biases)
 
             # Build weight updates with momentum - take previous updates multiplied by retain factor and update with current gradients
@@ -251,8 +281,7 @@ class Optimizer_SGD:
             weight_updates = -self.current_learning_rate * layer.dweights
             bias_updates = -self.current_learning_rate * layer.dbiases
 
-        # Update weights and biases using either
-        # vanilla or momentum updates
+        # Update weights and biases using either vanilla or momentum updates
         layer.weights += weight_updates
         layer.biases += bias_updates
 
@@ -272,8 +301,7 @@ class Optimizer_Adagrad:
     # Call once before any parameter updates
     def pre_update_params(self):
         if self.decay:
-            self.current_learning_rate = self.learning_rate * \
-                (1. / (1. + self.decay * self.iterations))
+            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
 
     def update_params(self, layer):
         # If layer does not contain cache arrays, create them filled with zeros
@@ -282,8 +310,8 @@ class Optimizer_Adagrad:
             layer.bias_cache = np.zeros_like(layer.biases)
 
         # Update cache with squared current gradients
-        layer.weight_cache += layer.dweights**2
-        layer.bias_cache += layer.dbiases**2
+        layer.weight_cache += layer.dweights ** 2
+        layer.bias_cache += layer.dbiases ** 2
 
         # Vanilla SGD parameter update + normalization with square rooted cache
         layer.weights += -self.current_learning_rate * \
@@ -350,7 +378,6 @@ class Optimizer_Adam:
             self.current_learning_rate = self.learning_rate * \
                 (1. / (1. + self.decay * self.iterations))
 
-    # Update parameters
     def update_params(self, layer):
         # If layer does not contain cache arrays, create them filled with zeros
         if not hasattr(layer, 'weight_cache'):
@@ -395,46 +422,51 @@ class Optimizer_Adam:
 
 
 
-X, y = spiral_data(samples=1000, classes=3)
+X, y = spiral_data(samples=100, classes=2)
+
+# Reshape labels to be a list of lists
+# Inner list contains one output (either 0 or 1)
+# per each output neuron, 1 in this case
+y = y.reshape(-1, 1)
 
 # Create Dense layer with 2 input features and 64 output values
 dense1 = Layer_Dense(n_inputs=2, n_neurons=64, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
 activation1 = Activation_ReLU()
-dropout1 = Layer_Dropout(0.1)
-dense2 = Layer_Dense(64, 3)
+dense2 = Layer_Dense(64, 1)
+activation2 = Activation_Sigmoid()
 
-loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-optimizer = Optimizer_Adam(learning_rate=0.05, decay=5e-5)
+loss_function = Loss_BinaryCrossentropy()
+
+optimizer = Optimizer_Adam(decay=5e-7)
 
 for epoch in range(10001):
     dense1.forward(X)
     activation1.forward(dense1.output)
-    dropout1.forward(activation1.output)
-    dense2.forward(dropout1.output)
+    dense2.forward(activation1.output)
+    activation2.forward(dense2.output)
 
-    # Data Loss
-    data_loss = loss_activation.forward(dense2.output, y)
-
+    # Calculate the data loss
+    data_loss = loss_function.calculate(activation2.output, y)
+    
     # Calculate regularization penalty
-    regularization_loss = loss_activation.loss.regularization_loss(dense1) + loss_activation.loss.regularization_loss(dense2)
-
+    regularization_loss = loss_function.regularization_loss(dense1) + loss_function.regularization_loss(dense2)
+    
+    # Calculate overall loss
     loss = data_loss + regularization_loss
-
-    predictions = np.argmax(loss_activation.output, axis=1)
     
-    if len(y.shape) == 2:
-        y = np.argmax(y, axis=1)
-    
+    # Calculate accuracy from output of activation2 and targets
+    # Part in the brackets returns a binary mask - array consisting of True/False values, multiplying it by 1 changes it into array of 1s and 0s
+    predictions = (activation2.output > 0.5) * 1
     accuracy = np.mean(predictions==y)
     
     if not epoch % 100:
-        print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f} Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}, LR: {optimizer.current_learning_rate:.5f}')
+        print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f}, Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}, LR: {optimizer.current_learning_rate:.5f}')
     
     # Backward pass
-    loss_activation.backward(loss_activation.output, y)
-    dense2.backward(loss_activation.dinputs)
-    dropout1.backward(dense2.dinputs)
-    activation1.backward(dropout1.dinputs)
+    loss_function.backward(activation2.output, y)
+    activation2.backward(loss_function.dinputs)
+    dense2.backward(activation2.dinputs)
+    activation1.backward(dense2.dinputs)
     dense1.backward(activation1.dinputs)
     
     # Update weights and biases
@@ -446,19 +478,18 @@ for epoch in range(10001):
     
 # Validate the model
 
-X_test, y_test = spiral_data(samples=100, classes=3)
+X_test, y_test = spiral_data(samples=100, classes=2)
+
+y_test = y_test.reshape(-1, 1)
 
 dense1.forward(X_test)
 activation1.forward(dense1.output)
 dense2.forward(activation1.output)
+activation2.forward(dense2.output)
 
-loss = loss_activation.forward(dense2.output, y_test)
+loss = loss_function.calculate(activation2.output, y_test)
 
-predictions = np.argmax(loss_activation.output, axis=1)
-
-if len(y_test.shape) == 2:
-    y_test = np.argmax(y_test, axis=1)
-
+predictions = (activation2.output > 0.5) * 1
 accuracy = np.mean(predictions==y_test)
 
 print(f'Validation | Acc: {accuracy:.3f}, Loss: {loss:.3f}')
