@@ -191,6 +191,22 @@ class Loss:
         return data_loss
 
 
+class Loss_MeanSquaredError(Loss):
+    def forward(self, y_pred, y_true):
+        sample_losses = np.mean((y_true - y_pred)**2, axis=-1)
+        return sample_losses
+
+    def backward(self, dvalues, y_true):
+        samples = len(dvalues)
+        outputs = len(dvalues[0])
+
+        # Gradient on values 
+        self.dinputs = -2 * (y_true - dvalues) / outputs
+
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
+
+
 class Loss_BinaryCrossentropy(Loss):
     def forward(self, y_pred, y_true):
         # Clip data to prevent division by 0
