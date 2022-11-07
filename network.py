@@ -51,6 +51,25 @@ class Layer_Dense:
         self.dinputs = np.dot(dvalues, self.weights.T)
 
 
+class Layer_Dropout:
+    def __init__(self, rate):
+        # Store inverted rate as for dropout of 0.1 we need success rate of 0.9
+        self.rate = 1 - rate
+        
+    def forward(self, inputs):
+        self.inputs = inputs
+
+        # Generate and save scaled mask
+        self.binary_mask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
+
+        # Apply mask to output values
+        self.output = inputs * self.binary_mask
+        
+    def backward(self, dvalues):
+        # Gradient on values
+        self.dinputs = dvalues * self.binary_mask
+
+
 class Activation_ReLU:
     def forward(self, inputs):
         self.inputs = inputs
@@ -84,7 +103,6 @@ class Activation_Softmax:
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
 
-# Common loss class
 class Loss:
     def regularization_loss(self, layer):
         # 0 by default
@@ -123,13 +141,6 @@ class Loss:
         # Return loss
         return data_loss
 
-# class Loss:
-#     def calculate(self, y_pred, y_true):
-#         sample_losses = self.forward(y_pred, y_true)
-#         data_loss = np.mean(sample_losses)
-#         return data_loss
-
-
 class Loss_CategoricalCrossentropy(Loss):
     def forward(self, y_pred, y_true):
         samples = len(y_pred)
@@ -161,7 +172,6 @@ class Loss_CategoricalCrossentropy(Loss):
         self.dinputs = self.dinputs / samples
 
 
-# Softmax classifier - combined Softmax activation and cross-entropy loss for faster backward step
 class Activation_Softmax_Loss_CategoricalCrossentropy():
     def __init__(self):
         self.activation = Activation_Softmax()
@@ -188,7 +198,6 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         self.dinputs = self.dinputs / samples
 
 
-# SGD optimizer
 class Optimizer_SGD:
     def __init__(self, learning_rate=1.0, decay=0.0, momentum=0.0):
         self.learning_rate = learning_rate
@@ -209,7 +218,6 @@ class Optimizer_SGD:
         layer.biases += -self.current_learning_rate * layer.dbiases
 
     def update_params(self, layer):
-        # If we use momentum
         if self.momentum:
             # If layer does not contain momentum arrays, create them filled with zeros
             if not hasattr(layer, 'weight_momentums'):
@@ -227,7 +235,7 @@ class Optimizer_SGD:
                 self.current_learning_rate * layer.dbiases
             layer.bias_momentums = bias_updates
 
-        # Vanilla SGD updates (as before momentum update)
+        # Vanilla SGD updates
         else:
             weight_updates = -self.current_learning_rate * layer.dweights
             bias_updates = -self.current_learning_rate * layer.dbiases
@@ -316,7 +324,6 @@ class Optimizer_RMSprop:
 
 
 class Optimizer_Adam:
-    # Initialize optimizer - set settings
     def __init__(self, learning_rate=0.001, decay=0.0, epsilon=1e-7, beta_1=0.9, beta_2=0.999):
         self.learning_rate = learning_rate
         self.current_learning_rate = learning_rate
@@ -377,66 +384,70 @@ class Optimizer_Adam:
 
 
 
-if __name__ == '__main__':
-    X, y = spiral_data(samples=1000, classes=3)
+X, y = spiral_data(samples=1000, classes=3)
 
-    # Create Dense layer with 2 input features and 64 output values
-    dense1 = Layer_Dense(n_inputs=2, n_neurons=512, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
+# Create Dense layer with 2 input features and 64 output values
+dense1 = Layer_Dense(n_inputs=2, n_neurons=64, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
+activation1 = Activation_ReLU()
+dropout1 = Layer_Dropout(0.1)
+dense2 = Layer_Dense(64, 3)
 
-    activation1 = Activation_ReLU()
+loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
+optimizer = Optimizer_Adam(learning_rate=0.05, decay=5e-5)
 
-    dense2 = Layer_Dense(512, 3)
-
-    loss_activation = Activation_Softmax_Loss_CategoricalCrossentropy()
-
-    optimizer = Optimizer_Adam(learning_rate=0.02, decay=5e-7)
-
-    for epoch in range(10001):
-        dense1.forward(X)
-        activation1.forward(dense1.output)
-        dense2.forward(activation1.output)
-
-        data_loss = loss_activation.forward(dense2.output, y)
-        regularization_loss = loss_activation.loss.regularization_loss(dense1) + loss_activation.loss.regularization_loss(dense2)
-
-        loss = data_loss + regularization_loss
-
-        predictions = np.argmax(loss_activation.output, axis=1)
-        if len(y.shape) == 2:
-            y = np.argmax(y, axis=1)
-
-        accuracy = np.mean(predictions == y)
-        if not epoch % 100:
-            print(f"Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f}, Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.5f}, LR: {optimizer.current_learning_rate:.5f}")
-        
-        # Backward pass
-        loss_activation.backward(loss_activation.output, y)
-        dense2.backward(loss_activation.dinputs)
-        activation1.backward(dense2.dinputs)
-        dense1.backward(activation1.dinputs)
-
-        # Update weights and biases
-        optimizer.pre_update_params()
-        optimizer.update_params(dense1)
-        optimizer.update_params(dense2)
-        optimizer.post_update_params()
-
-
-    # Validate the model
-
-    X_test, y_test = spiral_data(samples=100, classes=3)
-
-    dense1.forward(X_test)
+for epoch in range(10001):
+    dense1.forward(X)
     activation1.forward(dense1.output)
-    dense2.forward(activation1.output)
+    dropout1.forward(activation1.output)
+    dense2.forward(dropout1.output)
 
-    loss = loss_activation.forward(dense2.output, y_test)
+    # Data Loss
+    data_loss = loss_activation.forward(dense2.output, y)
+
+    # Calculate regularization penalty
+    regularization_loss = loss_activation.loss.regularization_loss(dense1) + loss_activation.loss.regularization_loss(dense2)
+
+    loss = data_loss + regularization_loss
 
     predictions = np.argmax(loss_activation.output, axis=1)
+    
+    if len(y.shape) == 2:
+        y = np.argmax(y, axis=1)
+    
+    accuracy = np.mean(predictions==y)
+    
+    if not epoch % 100:
+        print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f} Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}, LR: {optimizer.current_learning_rate:.5f}')
+    
+    # Backward pass
+    loss_activation.backward(loss_activation.output, y)
+    dense2.backward(loss_activation.dinputs)
+    dropout1.backward(dense2.dinputs)
+    activation1.backward(dropout1.dinputs)
+    dense1.backward(activation1.dinputs)
+    
+    # Update weights and biases
+    optimizer.pre_update_params()
+    optimizer.update_params(dense1)
+    optimizer.update_params(dense2)
+    optimizer.post_update_params()
+    
+    
+# Validate the model
 
-    if len(y_test.shape) == 2:
-        y_test = np.argmax(y_test, axis=1)
+X_test, y_test = spiral_data(samples=100, classes=3)
 
-    accuracy = np.mean(predictions == y_test)
+dense1.forward(X_test)
+activation1.forward(dense1.output)
+dense2.forward(activation1.output)
 
-    print(f'Validation | Acc: {accuracy:.3f}, Loss: {loss:.3f}')
+loss = loss_activation.forward(dense2.output, y_test)
+
+predictions = np.argmax(loss_activation.output, axis=1)
+
+if len(y_test.shape) == 2:
+    y_test = np.argmax(y_test, axis=1)
+
+accuracy = np.mean(predictions==y_test)
+
+print(f'Validation | Acc: {accuracy:.3f}, Loss: {loss:.3f}')
