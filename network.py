@@ -102,6 +102,42 @@ class Activation_Softmax:
             # Calculate sample-wise gradient and add it to the array of sample gradients
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
+class Activation_Sigmoid:
+    def forward(self,inputs):
+        self.inputs = inputs
+        
+        # Sigmoid function
+        self.output = 1 / (1 + np.exp(-inputs))
+
+    def backward(self, dvalues):
+        # Derivative - calculates from output of the sigmoid function
+        self.dinputs = dvalues * (1 - self.output) * self.out
+
+
+class Activation_Softmax_Loss_CategoricalCrossentropy():
+    def __init__(self):
+        self.activation = Activation_Softmax()
+        self.loss = Loss_CategoricalCrossentropy()
+
+    def forward(self, inputs, y_true):
+        self.activation.forward(inputs)
+        self.output = self.activation.output
+
+        return self.loss.calculate(self.output, y_true)
+
+    def backward(self, dvalues, y_true):
+        samples = len(dvalues)
+        # If labels are one-hot encoded, turn them into discrete values
+        if len(y_true.shape) == 2:
+            y_true = np.argmax(y_true, axis=1)
+
+        self.dinputs = dvalues.copy()
+
+        # Calculate gradient
+        self.dinputs[range(samples), y_true] -= 1
+
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
 
 class Loss:
     def regularization_loss(self, layer):
@@ -141,6 +177,7 @@ class Loss:
         # Return loss
         return data_loss
 
+
 class Loss_CategoricalCrossentropy(Loss):
     def forward(self, y_pred, y_true):
         samples = len(y_pred)
@@ -167,32 +204,6 @@ class Loss_CategoricalCrossentropy(Loss):
 
         # Calculate gradient
         self.dinputs = -y_true / dvalues
-
-        # Normalize gradient
-        self.dinputs = self.dinputs / samples
-
-
-class Activation_Softmax_Loss_CategoricalCrossentropy():
-    def __init__(self):
-        self.activation = Activation_Softmax()
-        self.loss = Loss_CategoricalCrossentropy()
-
-    def forward(self, inputs, y_true):
-        self.activation.forward(inputs)
-        self.output = self.activation.output
-
-        return self.loss.calculate(self.output, y_true)
-
-    def backward(self, dvalues, y_true):
-        samples = len(dvalues)
-        # If labels are one-hot encoded, turn them into discrete values
-        if len(y_true.shape) == 2:
-            y_true = np.argmax(y_true, axis=1)
-
-        self.dinputs = dvalues.copy()
-
-        # Calculate gradient
-        self.dinputs[range(samples), y_true] -= 1
 
         # Normalize gradient
         self.dinputs = self.dinputs / samples
