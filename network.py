@@ -5,6 +5,7 @@ from nnfs.datasets import spiral_data, vertical_data
 
 nnfs.init()
 
+
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons, weight_regularizer_l1=0, weight_regularizer_l2=0, bias_regularizer_l1=0, bias_regularizer_l2=0):
         # Initialize weights and biases
@@ -25,7 +26,7 @@ class Layer_Dense:
         # Gradients on parameters
         self.dweights = np.dot(self.inputs.T, dvalues)
         self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
-        
+
         # Gradients on regularization
         # L1 on weights
         if self.weight_regularizer_l1 > 0:
@@ -54,21 +55,20 @@ class Layer_Dropout:
     def __init__(self, rate):
         # Store inverted rate as for dropout of 0.1 we need success rate of 0.9
         self.rate = 1 - rate
-        
+
     def forward(self, inputs):
         self.inputs = inputs
 
         # Generate and save scaled mask
-        self.binary_mask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
+        self.binary_mask = np.random.binomial(
+            1, self.rate, size=inputs.shape) / self.rate
 
         # Apply mask to output values
         self.output = inputs * self.binary_mask
-        
+
     def backward(self, dvalues):
         # Gradient on values
         self.dinputs = dvalues * self.binary_mask
-
-
 
 
 class Activation_ReLU:
@@ -98,15 +98,17 @@ class Activation_Softmax:
             single_output = single_output.reshape(-1, 1)
 
             # Calculate Jacobian matrix of the output and
-            jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
-            
+            jacobian_matrix = np.diagflat(
+                single_output) - np.dot(single_output, single_output.T)
+
             # Calculate sample-wise gradient and add it to the array of sample gradients
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
 
+
 class Activation_Sigmoid:
-    def forward(self,inputs):
+    def forward(self, inputs):
         self.inputs = inputs
-        
+
         # Sigmoid function
         self.output = 1 / (1 + np.exp(-inputs))
 
@@ -128,7 +130,7 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
 
     def backward(self, dvalues, y_true):
         samples = len(dvalues)
-        
+
         # If labels are one-hot encoded, turn them into discrete values
         if len(y_true.shape) == 2:
             y_true = np.argmax(y_true, axis=1)
@@ -141,15 +143,15 @@ class Activation_Softmax_Loss_CategoricalCrossentropy():
         # Normalize gradient
         self.dinputs = self.dinputs / samples
 
+
 class Activation_Linear:
     def forward(self, inputs):
         self.inputs = inputs
         self.output = inputs
-        
+
     def backward(self, dvalues):
         # Derivative of y=x, is 1
         self.dinputs = dvalues.copy()
-
 
 
 class Loss:
@@ -193,15 +195,31 @@ class Loss:
 
 class Loss_MeanSquaredError(Loss):
     def forward(self, y_pred, y_true):
-        sample_losses = np.mean((y_true - y_pred)**2, axis=-1)
+        sample_losses = np.mean((y_true - y_pred) ** 2, axis=-1)
         return sample_losses
 
     def backward(self, dvalues, y_true):
         samples = len(dvalues)
         outputs = len(dvalues[0])
 
-        # Gradient on values 
+        # Gradient on values
         self.dinputs = -2 * (y_true - dvalues) / outputs
+
+        # Normalize gradient
+        self.dinputs = self.dinputs / samples
+
+
+class Loss_MeanAbsoluteError(Loss):
+    def forward(self, y_pred, y_true):
+        sample_losses = np.mean(np.abs(y_true - y_pred), axis=-1)
+        return sample_losses
+
+    def backward(self, dvalues, y_true):
+        samples = len(dvalues)
+        outputs = len(dvalues[0])
+
+        # Calculate gradient
+        self.dinputs = np.sign(y_true - dvalues) / outputs
 
         # Normalize gradient
         self.dinputs = self.dinputs / samples
@@ -211,9 +229,10 @@ class Loss_BinaryCrossentropy(Loss):
     def forward(self, y_pred, y_true):
         # Clip data to prevent division by 0
         y_pred_clipped = np.clip(y_pred, 1e-7, 1 - 1e-7)
-        
+
         # Calculate sample-wise loss
-        sample_losses = -(y_true * np.log(y_pred_clipped) + (1 - y_true) * np.log(1 - y_pred_clipped))
+        sample_losses = -(y_true * np.log(y_pred_clipped) +
+                          (1 - y_true) * np.log(1 - y_pred_clipped))
         sample_losses = np.mean(sample_losses, axis=-1)
 
         return sample_losses
@@ -221,13 +240,14 @@ class Loss_BinaryCrossentropy(Loss):
     def backward(self, dvalues, y_true):
         samples = len(dvalues)
         outputs = len(dvalues[0])
-        
+
         # Clip data to prevent division by 0
         clipped_dvalues = np.clip(dvalues, 1e-7, 1 - 1e-7)
-        
+
         # Calculate gradient
-        self.dinputs = -(y_true / clipped_dvalues - (1 - y_true) / (1 - clipped_dvalues)) / outputs
-        
+        self.dinputs = -(y_true / clipped_dvalues -
+                         (1 - y_true) / (1 - clipped_dvalues)) / outputs
+
         # Normalize gradient, so not influenced on number of samples
         self.dinputs = self.dinputs / samples
 
@@ -324,7 +344,8 @@ class Optimizer_Adagrad:
     # Call once before any parameter updates
     def pre_update_params(self):
         if self.decay:
-            self.current_learning_rate = self.learning_rate * (1. / (1. + self.decay * self.iterations))
+            self.current_learning_rate = self.learning_rate * \
+                (1. / (1. + self.decay * self.iterations))
 
     def update_params(self, layer):
         # If layer does not contain cache arrays, create them filled with zeros
@@ -444,7 +465,6 @@ class Optimizer_Adam:
         self.iterations += 1
 
 
-
 X, y = spiral_data(samples=100, classes=2)
 
 # Reshape labels to be a list of lists
@@ -453,7 +473,8 @@ X, y = spiral_data(samples=100, classes=2)
 y = y.reshape(-1, 1)
 
 # Create Dense layer with 2 input features and 64 output values
-dense1 = Layer_Dense(n_inputs=2, n_neurons=64, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
+dense1 = Layer_Dense(n_inputs=2, n_neurons=64,
+                     weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4)
 activation1 = Activation_ReLU()
 dense2 = Layer_Dense(64, 1)
 activation2 = Activation_Sigmoid()
@@ -470,35 +491,36 @@ for epoch in range(10001):
 
     # Calculate the data loss
     data_loss = loss_function.calculate(activation2.output, y)
-    
+
     # Calculate regularization penalty
-    regularization_loss = loss_function.regularization_loss(dense1) + loss_function.regularization_loss(dense2)
-    
+    regularization_loss = loss_function.regularization_loss(
+        dense1) + loss_function.regularization_loss(dense2)
+
     # Calculate overall loss
     loss = data_loss + regularization_loss
-    
+
     # Calculate accuracy from output of activation2 and targets
     # Part in the brackets returns a binary mask - array consisting of True/False values, multiplying it by 1 changes it into array of 1s and 0s
     predictions = (activation2.output > 0.5) * 1
-    accuracy = np.mean(predictions==y)
-    
+    accuracy = np.mean(predictions == y)
+
     if not epoch % 100:
         print(f'Epoch: {epoch}, Acc: {accuracy:.3f}, Loss: {loss:.3f}, (Data_Loss: {data_loss:.3f}, Reg_Loss: {regularization_loss:.3f}), LR: {optimizer.current_learning_rate:.5f}')
-    
+
     # Backward pass
     loss_function.backward(activation2.output, y)
     activation2.backward(loss_function.dinputs)
     dense2.backward(activation2.dinputs)
     activation1.backward(dense2.dinputs)
     dense1.backward(activation1.dinputs)
-    
+
     # Update weights and biases
     optimizer.pre_update_params()
     optimizer.update_params(dense1)
     optimizer.update_params(dense2)
     optimizer.post_update_params()
-    
-    
+
+
 # Validate the model
 
 X_test, y_test = spiral_data(samples=100, classes=2)
@@ -513,6 +535,6 @@ activation2.forward(dense2.output)
 loss = loss_function.calculate(activation2.output, y_test)
 
 predictions = (activation2.output > 0.5) * 1
-accuracy = np.mean(predictions==y_test)
+accuracy = np.mean(predictions == y_test)
 
 print(f'Validation | Acc: {accuracy:.3f}, Loss: {loss:.3f}')
