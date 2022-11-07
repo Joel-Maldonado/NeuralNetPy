@@ -36,8 +36,7 @@ class Layer_Dense:
             self.dweights += self.weight_regularizer_l1 * dL1
         # L2 on weights
         if self.weight_regularizer_l2 > 0:
-            self.dweights += 2 * self.weight_regularizer_l2 * \
-                self.weights
+            self.dweights += 2 * self.weight_regularizer_l2 * self.weights
         # L1 on biases
         if self.bias_regularizer_l1 > 0:
             dL1 = np.ones_like(self.biases)
@@ -65,8 +64,7 @@ class Layer_Dropout:
             return
 
         # Generate and save scaled mask
-        self.binary_mask = np.random.binomial(
-            1, self.rate, size=inputs.shape) / self.rate
+        self.binary_mask = np.random.binomial(1, self.rate, size=inputs.shape) / self.rate
 
         # Apply mask to output values
         self.output = inputs * self.binary_mask
@@ -232,7 +230,7 @@ class Loss_MeanAbsoluteError(Loss):
         outputs = len(dvalues[0])
 
         # Calculate gradient
-        self.dinputs = np.sign(y_true - dvalues) / outputs
+        self.dinputs = np.sign(dvalues - y_true) / outputs
 
         # Normalize gradient
         self.dinputs = self.dinputs / samples
@@ -531,12 +529,11 @@ class Model:
         self.accuracy = accuracy
 
     def finalize(self):
-        # Create and set the input layer
         self.input_layer = Layer_Input()
-        # Count all the objects
         layer_count = len(self.layers)
-        # Initialize a list containing trainable layers:
+        
         self.trainable_layers = []
+        
         # Iterate the objects
         for i in range(layer_count):
             # If it's the first layer, the previous layer object is the input layer
@@ -557,8 +554,9 @@ class Model:
             
             if hasattr(self.layers[i], 'weights'):
                 self.trainable_layers.append(self.layers[i])
-                # Update loss object with trainable layers
-                self.loss.remember_trainable_layers(self.trainable_layers)
+            
+            # Update loss object with trainable layers
+            self.loss.remember_trainable_layers(self.trainable_layers)
             
         # If output activation is Softmax and loss function is Categorical Cross-Entropy create an object of combined activation and loss function containing faster gradient calculation
         if isinstance(self.layers[-1], Activation_Softmax) and isinstance(self.loss, Loss_CategoricalCrossentropy):
@@ -584,7 +582,7 @@ class Model:
             self.optimizer.pre_update_params()
             for layer in self.trainable_layers:
                 self.optimizer.update_params(layer)
-                self.optimizer.post_update_params()
+            self.optimizer.post_update_params()
                 
             # Print a summary
             if not epoch % print_every:
@@ -618,8 +616,7 @@ class Model:
             # This will set dinputs property
             self.softmax_classifier_output.backward(output, y)
             
-            self.layers[-1].dinputs = \
-            self.softmax_classifier_output.dinputs
+            self.layers[-1].dinputs = self.softmax_classifier_output.dinputs
             
             for layer in reversed(self.layers[:-1]):
                 layer.backward(layer.next.dinputs)
@@ -632,23 +629,49 @@ class Model:
         for layer in reversed(self.layers):
             layer.backward(layer.next.dinputs)
 
-X, y = spiral_data(samples=1000, classes=3)
-X_test, y_test = spiral_data(samples=100, classes=3)
+# X, y = spiral_data(samples=1000, classes=3)
+# X_test, y_test = spiral_data(samples=100, classes=3)
+
+# model = Model()
+
+# model.add(Layer_Dense(2, 64, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4))
+# model.add(Activation_ReLU())
+# model.add(Layer_Dropout(0.1))
+# model.add(Layer_Dense(64, 3))
+# model.add(Activation_Softmax())
+
+# model.set(
+#     loss=Loss_CategoricalCrossentropy(),
+#     optimizer=Optimizer_Adam(learning_rate=0.05, decay=5e-5),
+#     accuracy=Accuracy_Categorical()
+# )
+
+# model.finalize()
+
+# model.train(X, y, validation_data=(X_test, y_test), epochs=10000, print_every=100)
+
+num_samples = 10000
+
+X = np.round(np.random.random((num_samples, 2)) * 1000 - 500)
+y = np.sum(X, axis=1).reshape(num_samples, 1)
+
+print(X, y)
 
 model = Model()
 
-model.add(Layer_Dense(2, 64, weight_regularizer_l2=5e-4, bias_regularizer_l2=5e-4))
+model.add(Layer_Dense(2, 64))
 model.add(Activation_ReLU())
-model.add(Layer_Dropout(0.1))
-model.add(Layer_Dense(64, 3))
-model.add(Activation_Softmax())
+model.add(Layer_Dense(64, 1))
+model.add(Activation_Linear())
 
 model.set(
-    loss=Loss_CategoricalCrossentropy(),
-    optimizer=Optimizer_Adam(learning_rate=0.05, decay=5e-5),
-    accuracy=Accuracy_Categorical()
+    loss=Loss_MeanAbsoluteError(),
+    optimizer=Optimizer_Adam(),
+    accuracy=Accuracy_Regression(),
 )
 
 model.finalize()
 
-model.train(X, y, validation_data=(X_test, y_test), epochs=10000, print_every=100)
+model.train(X, y, epochs=5000, print_every=100)
+
+print(model.forward(np.array([[1, 3], [42, 42]]), training=False))
