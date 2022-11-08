@@ -474,8 +474,6 @@ class Optimizer_Adam:
     def post_update_params(self):
         self.iterations += 1
 
-# Common accuracy class
-
 
 class Accuracy:
     # Calculates an accuracy given predictions and ground truth values
@@ -515,8 +513,6 @@ class Accuracy_Regression(Accuracy):
     # Compares predictions to the ground truth values
     def compare(self, predictions, y):
         return np.absolute(predictions - y) < self.precision
-
-# Model class
 
 
 class Model:
