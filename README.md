@@ -1,4 +1,4 @@
-# Neural Network From Scratch
+# Neural Network Using Python and Numpy
 
 This is a neural network library created using numpy. It allows you to create, train, and save models. The library is inspired by PyTorch but simplified for educational purposes. 
 
