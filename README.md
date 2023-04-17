@@ -71,7 +71,6 @@ You can load your own data using the np.load() method, and then pass the data in
 
 ```python
 
-import NeuralNetworkFromScratch as net
 import numpy as np
 
 X_train = np.random.rand(1000, 784)
@@ -85,8 +84,6 @@ train = net.utils.Dataset(X_train, y_train, batch_size=32, shuffle=True)
 To train the model, you can use a for loop and iterate over the batches of data in the train dataset. Here is an example:
 
 ```python
-
-import NeuralNetworkFromScratch as net
 
 loss_fn = net.losses.CategoricalCrossentropy()
 optim = net.optimizers.Adam(model.layers, lr=0.001)
@@ -124,7 +121,7 @@ This will train the model for 10 epochs, iterating over the batches of data and 
 To save a model, you can use the save method provided by the model. Here is an example:
 
 ```python
-model.save('linear_model')
+model.save('linear_model_1')
 ```
 This will save the model parameters to a .npz file with the specified name.
 
@@ -132,7 +129,7 @@ To load a saved model, you can create a new instance of MyModel and then call th
 
 ```python
 
-model = MyModel()
-model.load('saved_model.npz')
+model = LinearModel()
+model.load('linear_model_1.npz')
 
 ```
