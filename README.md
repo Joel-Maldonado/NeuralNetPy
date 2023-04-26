@@ -36,6 +36,13 @@ Utils
 
 This library has a Dataset class implemented which allows you to iterate over batches of data and other utlities useful for deep learning
 
+## Install
+```
+pip install NeuralNetPy
+```
+
+PyPi: https://pypi.org/project/NeuralNetPy/
+
 ## Usage
 
 Creating a Linear Model
