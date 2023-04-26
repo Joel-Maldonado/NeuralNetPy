@@ -10,7 +10,7 @@ def read(filename):
 
 setup(
     name='NeuralNetPy',
-    version='0.0.3',
+    version='0.0.4',
     author='Joel Maldonado-Ruiz',
     author_email='jmaldonadoruiz0@gmail.com',
     description='NeuralNetPy is a neural network library created using numpy that allows you to create, train, and save deep learning models.',
