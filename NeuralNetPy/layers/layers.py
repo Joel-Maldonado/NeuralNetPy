@@ -1,5 +1,4 @@
 import numpy as np
-from PIL import Image
 
 class Layer:
     def __init__(self):
@@ -221,18 +220,3 @@ class AveragePooling2D(Layer):
     def __repr__(self):
         return f"MaxPool2D({self.pool_size})"
 
-
-class RandomRotate(Layer):
-    def __init__(self, max_rot_degs):
-        self.max_rot_degs = max_rot_degs
-        
-    def forward(self, batch_img):
-        new = np.zeros_like(batch_img)
-        for i in range(len(batch_img)):
-            n = np.random.randint(self.max_rot_degs[0], self.max_rot_degs[1])
-            new[i] = np.array(Image.fromarray(batch_img[i].transpose(1, 2, 0).squeeze()).rotate(n))    
-    
-        return new
-    
-    def backward(self, x):
-        return x

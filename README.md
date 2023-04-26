@@ -1,6 +1,6 @@
 # Neural Network Using Python and Numpy
 
-NeuralNetPy is a neural network library created using numpy that allows you to create, train, and save models. The library is inspired by PyTorch but simplified for educational purposes. 
+NeuralNetPy is a neural network library created using numpy that allows you to create, train, and save deep learning models. The library is inspired by PyTorch but simplified for educational purposes. 
 
 It includes common layers, activations, losses, and optimizers, making it easy to build a variety of models for different tasks. It also includes helpful utility functions for data preprocessing, training and testing the models, and saving and loading models.
 

@@ -23,7 +23,6 @@ class ReLU(Activation):
         return np.maximum(0, x)
 
     def backward(self, dout):
-        print(dout.shape)
         dout[self.x <= 0] = 0
         return dout
 
