@@ -26,6 +26,44 @@ class ReLU(Activation):
         dout[self.x <= 0] = 0
         return dout
 
+class LeakyReLU(Activation):
+    def __init__(self, alpha=0.1):
+        super().__init__()
+        self.alpha = alpha
+
+    def forward(self, x):
+        self.output = np.where(x > 0, x, self.alpha * x)
+        return self.output
+
+    def backward(self, grad):
+        return np.where(self.output > 0, grad, self.alpha * grad)
+    
+
+class AdaReLU(Activation):
+    def __init__(self, alpha=1e-2, scale=1.0):
+        super().__init__()
+        self.alpha = alpha
+        self.scale = scale
+
+    def forward(self, x):
+        self.mask = x > 0
+        self.output = x * self.mask + (self.alpha * x + self.alpha * self.scale) * (1 - self.mask)
+        return self.output
+
+    def backward(self, grad):
+        return grad * (self.mask + (self.alpha * self.scale + self.alpha * (1 - self.scale) * self.output / self.alpha) * (1 - self.mask))
+
+
+class Swish(Activation):
+    def forward(self, x):
+        self.x = x
+        self.output = x * (1 / (1 + np.exp(-x)))
+        return self.output
+
+    def backward(self, grad):
+        sigmoid = 1 / (1 + np.exp(-self.x))
+        return grad * (sigmoid + self.output * (1 - sigmoid))
+
 
 class GeLU(Activation):
     def forward(self, x):
@@ -50,3 +88,11 @@ class Softmax(Activation):
             single_output = single_output.reshape(-1, 1)
             jacobian_matrix = np.diagflat(single_output) - np.dot(single_output, single_output.T)
             self.dinputs[index] = np.dot(jacobian_matrix, single_dvalues)
+
+class Sigmoid(Activation):
+    def forward(self, x):
+        self.output = 1 / (1 + np.exp(-x))
+        return self.output
+
+    def backward(self, grad):
+        return grad * self.output * (1 - self.output)
