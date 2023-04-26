@@ -38,7 +38,7 @@ optim = net.optimizers.Adam(model1.layers, lr=0.01)
 
 
 # Training Loop
-epochs = 300
+epochs = 500
 for epoch in range(epochs):
     running_loss_train = 0
 
@@ -78,11 +78,10 @@ plt.legend()
 plt.show()
 
 
-# Save the model
+# Save the model weights
 model1.save('sin-model-1')
 
 
 # Load model
-
-# loaded_model = MyModel()
-# loaded_model.load('sin-model-1.npz')
+loaded_model = MyModel() # Random weights
+loaded_model.load('sin-model-1.npz') # Loads saved weights into loaded_model

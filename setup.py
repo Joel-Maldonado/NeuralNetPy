@@ -10,10 +10,10 @@ def read(filename):
 
 setup(
     name='NeuralNetPy',
-    version='0.0.1',
+    version='0.0.3',
     author='Joel Maldonado-Ruiz',
     author_email='jmaldonadoruiz0@gmail.com',
-    description='NeuralNetPy is a neural network library created using numpy that allows you to create, train, and save deep learning models. It includes common layers, activations, losses, and optimizers, making it easy to build a variety of models for different tasks. It also includes helpful utility functions for data preprocessing, training and testing the models, and saving and loading models.',
+    description='NeuralNetPy is a neural network library created using numpy that allows you to create, train, and save deep learning models.',
     long_description=read('README.md'),
     long_description_content_type="text/markdown",
     license='GNU General Public License v3.0',
