@@ -51,7 +51,7 @@ class BaseModel:
             if hasattr(layer, 'weights'):
                 layer.weights = data[f"layer_{i}_weights"]
                 layer.biases = data[f"layer_{i}_biases"]
-        return data['summary']
+        return None
        
     def summary(self):
         return "\n".join([str(layer) for layer in self.layers])

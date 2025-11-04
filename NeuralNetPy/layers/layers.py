@@ -17,7 +17,11 @@ class Layer:
         try:
             return self.forward(x)
         except ValueError as e:
-            print(f"Expected shape: {self.weights.shape} But received shape: {x.shape}")
+            expected = 'unknown'
+            if hasattr(self, 'weights') and getattr(self, 'weights') is not None:
+                expected = getattr(self, 'weights').shape
+            print(f"Expected shape: {expected} But received shape: {x.shape}")
+            raise
             
    
 
@@ -38,7 +42,7 @@ class Dense(Layer):
         return np.dot(inputs, self.weights.T) + self.biases
 
     def backward(self, dvalues):
-        self.dweights = np.dot(self.inputs.T, dvalues)
+        self.dweights = np.dot(dvalues.T, self.inputs)
         self.dbiases = np.sum(dvalues, axis=0, keepdims=True)
        
         return np.dot(dvalues, self.weights)
@@ -144,7 +148,9 @@ class Conv2D(Layer):
         out_h = (H + 2 * pad - filter_h) // stride + 1
         out_w = (W + 2 * pad - filter_w) // stride + 1
 
-        col_reshaped = col.reshape(N, out_h, out_w, C, filter_h, filter_w)
+        # col is shaped (C*filter_h*filter_w, N*out_h*out_w).
+        # Transpose to match (N*out_h*out_w, C*filter_h*filter_w) then reshape.
+        col_reshaped = col.T.reshape(N, out_h, out_w, C, filter_h, filter_w)
         X_padded = np.zeros((N, C, H + 2 * pad, W + 2 * pad), dtype=col.dtype)
         for i in range(out_h):
             for j in range(out_w):
@@ -155,7 +161,7 @@ class Conv2D(Layer):
         if pad == 0:
             return X_padded
         elif type(pad) is int:
-            return X_padded[pad:-pad, pad:-pad, :, :]
+            return X_padded[:, :, pad:-pad, pad:-pad]
 
     def __repr__(self):
         return f"Conv2D(in_channels={self.in_channels}, out_channels={self.out_channels}, kernel_size={self.kernel_size}, stride={self.stride}, padding={self.padding})"
@@ -163,7 +169,7 @@ class Conv2D(Layer):
 
 class MaxPool2D(Layer):
     def __init__(self, pool_size):
-        self.pool_size = pool_size
+        self.pool_size = (pool_size, pool_size) if isinstance(pool_size, int) else pool_size
         self.cache = None
 
     def forward(self, X):
@@ -195,28 +201,31 @@ class MaxPool2D(Layer):
 
 class AveragePooling2D(Layer):
     def __init__(self, pool_size):
-        self.pool_size = pool_size
+        self.pool_size = (pool_size, pool_size) if isinstance(pool_size, int) else pool_size
         self.cache = None
     
     def forward(self, X):
-        N, C, self.H, self.W = X.shape
-        kh, kw = self.pool_size, self.pool_size
-        new_h = int(self.H / kh)
-        new_w = int(self.W / kw)
-        X_reshaped = X.reshape(N, C, kh, kw, new_h, new_w)
-        out = X_reshaped.mean(axis=(2, 3))
-        self.cache = (X_reshaped, out)
+        self.cache = X
+        N, C, H, W = X.shape
+        ph, pw = self.pool_size
+        oh, ow = H // ph, W // pw
+        out = np.zeros((N, C, oh, ow))
+        for i in range(oh):
+            for j in range(ow):
+                window = X[:, :, i*ph:(i+1)*ph, j*pw:(j+1)*pw]
+                out[:, :, i, j] = window.mean(axis=(2, 3))
         return out
 
     def backward(self, dout):
-        X_reshaped, out = self.cache
-        N, C, kh, kw, new_h, new_w = X_reshaped.shape
-        dX_reshaped = np.zeros_like(X_reshaped)
-        dX_reshaped.reshape(N, C, kh*kw, new_h, new_w)[range(N), :, :, :, :] = \
-            dout[:, :, np.newaxis, :, :] / (kh*kw)
-        dX = dX_reshaped.reshape(N, C, self.H, self.W)
-        return dX
+        N, C, oh, ow = dout.shape
+        ph, pw = self.pool_size
+        H = oh * ph
+        W = ow * pw
+        dx = np.zeros_like(self.cache)
+        for i in range(oh):
+            for j in range(ow):
+                dx[:, :, i*ph:(i+1)*ph, j*pw:(j+1)*pw] += (dout[:, :, i, j])[:, :, None, None] / (ph * pw)
+        return dx
     
     def __repr__(self):
-        return f"MaxPool2D({self.pool_size})"
-
+        return f"AveragePooling2D({self.pool_size})"

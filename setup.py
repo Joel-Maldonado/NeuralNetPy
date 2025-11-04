@@ -19,7 +19,7 @@ setup(
     license='GNU General Public License v3.0',
     keywords=['Neural Network', 'Python', 'AI', 'Numpy', 'Deep Learning'],
     packages=find_packages(),
-    install_requires=['numpy >= 1.23.5', 'matplotlib >= 3.6.3'],
+    install_requires=['numpy >= 1.23.5'],
     include_package_data=True,
     zip_safe=False,
     classifiers=[
